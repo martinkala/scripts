@@ -1,0 +1,43 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install required packages
+  apt:
+    name:
+      - nginx
+      - curl
+      - htop
+      - fail2ban
+      - ufw
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Ensure nginx service is running and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Configure firewall
+  ufw:
+    rule: allow
+    port: '80'
+    proto: tcp
+  notify: reload ufw
+
+- name: Configure firewall for HTTPS
+  ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+  notify: reload ufw
+
+- name: Ensure fail2ban is running
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes

@@ -1,0 +1,63 @@
+---
+- name: Backup Website Content and Configurations
+  hosts: web
+  become: yes
+  vars:
+    site_name: "{{ site_name | default('default') }}"
+    backup_dir: "{{ backup_dir | default('/backups') }}"
+    web_root: "{{ web_root | default('/www') }}"
+    nginx_config_dir: "{{ nginx_config_dir | default('/etc/nginx') }}"
+  
+  tasks:
+    - name: Create backup timestamp
+      set_fact:
+        backup_timestamp: "{{ ansible_date_time.iso8601 | regex_replace(':', '-') | regex_replace('T', '_') }}"
+    
+    - name: Create backup directory on backup server
+      file:
+        path: "{{ backup_dir }}/{{ site_name }}/{{ backup_timestamp }}"
+        state: directory
+        mode: '0755'
+        owner: backup
+        group: backup
+      delegate_to: "{{ groups['backup'][0] }}"
+    
+    - name: Backup website content
+      synchronize:
+        src: "{{ web_root }}/{{ site_name }}/"
+        dest: "{{ backup_dir }}/{{ site_name }}/{{ backup_timestamp }}/content/"
+        mode: pull
+        delete: no
+        recursive: yes
+        rsync_opts:
+          - "--exclude=*.tmp"
+          - "--exclude=*.log"
+      delegate_to: "{{ groups['backup'][0] }}"
+    
+    - name: Backup nginx configurations
+      synchronize:
+        src: "{{ nginx_config_dir }}/sites-available/"
+        dest: "{{ backup_dir }}/{{ site_name }}/{{ backup_timestamp }}/config/"
+        mode: pull
+        delete: no
+        recursive: yes
+      delegate_to: "{{ groups['backup'][0] }}"
+    
+    - name: Create backup manifest
+      copy:
+        content: |
+          Backup created: {{ backup_timestamp }}
+          Site: {{ site_name }}
+          Content size: {{ ansible_facts.size_mb }} MB
+          Config files: {{ ansible_facts.config_count }}
+        dest: "{{ backup_dir }}/{{ site_name }}/{{ backup_timestamp }}/manifest.txt"
+        mode: '0644'
+      delegate_to: "{{ groups['backup'][0] }}"
+    
+    - name: Cleanup old backups (keep last 10)
+      file:
+        path: "{{ backup_dir }}/{{ site_name }}/{{ item }}"
+        state: absent
+      loop: "{{ (backup_dir + '/' + site_name) | listdir | sort | reverse | slice(10) }}"
+      delegate_to: "{{ groups['backup'][0] }}"
+      when: (backup_dir + '/' + site_name) | listdir | length > 10

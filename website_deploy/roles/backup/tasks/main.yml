@@ -1,0 +1,46 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install required packages
+  apt:
+    name:
+      - rsync
+      - cron
+      - htop
+      - fail2ban
+      - ufw
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Ensure backup directory exists
+  file:
+    path: "{{ backup_dir | default('/backups') }}"
+    state: directory
+    mode: '0755'
+    owner: backup
+    group: backup
+
+- name: Create backup user
+  user:
+    name: backup
+    shell: /bin/bash
+    home: "{{ backup_dir | default('/backups') }}"
+    system: yes
+    create_home: yes
+
+- name: Configure firewall for backup services
+  ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+  notify: reload ufw
+
+- name: Ensure fail2ban is running
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes

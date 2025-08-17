@@ -1,0 +1,67 @@
+---
+- name: Deploy Static Website
+  hosts: web
+  become: yes
+  vars:
+    source_dir: "{{ playbook_dir }}/source"
+    site_name: "{{ site_name_var | default('default') }}"
+    nginx_config_dir: "{{ nginx_config_dir_path | default('/etc/nginx') }}"
+    web_root: "{{ web_root_path | default('/opt') }}"
+  
+  tasks:
+    - name: Ensure required directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+        owner: www-data
+        group: www-data
+      loop:
+        - "{{ web_root }}/{{ site_name }}"
+        - "{{ nginx_config_dir }}/sites-available"
+        - "{{ nginx_config_dir }}/sites-enabled"
+    
+    - name: Copy website content
+      copy:
+        src: "{{ source_dir }}/www/"
+        dest: "{{ web_root }}/{{ site_name }}/"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+        backup: yes
+      notify: reload nginx
+    
+    - name: Copy nginx configuration files
+      copy:
+        src: "{{ source_dir }}/conf/sites-available/"
+        dest: "{{ nginx_config_dir }}/sites-available/"
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+      notify: reload nginx
+    
+    - name: Enable nginx site
+      file:
+        src: "{{ nginx_config_dir }}/sites-available/{{ site_name }}"
+        dest: "{{ nginx_config_dir }}/sites-enabled/{{ site_name }}"
+        state: link
+        owner: root
+        group: root
+      notify: reload nginx
+    
+    - name: Test nginx configuration
+      command: nginx -t
+      register: nginx_test
+      changed_when: false
+    
+    - name: Fail if nginx configuration is invalid
+      fail:
+        msg: "Nginx configuration test failed"
+      when: nginx_test.rc != 0
+    
+  handlers:
+    - name: reload nginx
+      service:
+        name: nginx
+        state: reloaded
