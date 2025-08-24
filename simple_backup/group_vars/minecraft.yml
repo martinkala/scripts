@@ -1,0 +1,4 @@
+---
+# Backup sources for minecraft servers
+backup_sources:
+  - /home/minecraft/world/

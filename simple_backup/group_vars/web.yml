@@ -8,5 +8,3 @@ backup_sources:
   - /var/www/
   - /etc/systemd/system/
   - /etc/cron.d/
-  - /var/log/nginx/
-  - /root/.ssh/
