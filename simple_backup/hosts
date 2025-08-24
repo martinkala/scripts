@@ -1,0 +1,16 @@
+[web]
+web1 ansible_host=194.182.81.37 ansible_user=root
+
+[backup]
+backup1 ansible_host=194.182.87.206 ansible_user=root
+
+
+[web:vars]
+ansible_python_interpreter=/usr/bin/python3
+nginx_config_dir=/etc/nginx
+web_root=/opt
+ansible_ssh_common_args='-o IdentitiesOnly=no'
+
+[backup:vars]
+ansible_python_interpreter=/usr/bin/python3
+backup_dir=/backups

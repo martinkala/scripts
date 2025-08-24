@@ -1,0 +1,40 @@
+---
+# Fallback Backup Configuration
+# This file is used only if backup_sources are not defined in the hosts file
+# For production use, define backup_sources in the hosts file for each host group
+
+# Default backup sources (fallback)
+backup_sources:
+  # System configuration files
+  - /etc/nginx/nginx.conf
+  - /etc/nginx/sites-available/
+  - /etc/nginx/sites-enabled/
+  
+  # Web application files
+  - /opt/
+  - /var/www/
+  
+  # System configuration
+  - /etc/systemd/system/
+  - /etc/cron.d/
+  
+  # Log files (optional)
+  - /var/log/nginx/
+  
+  # SSH configuration (if exists)
+  - /root/.ssh/
+
+# Exclude patterns (files/directories to skip)
+exclude_patterns:
+  - "*.tmp"
+  - "*.log"
+  - "*.cache"
+  - "node_modules/"
+  - ".git/"
+  - "*.pyc"
+  - "__pycache__/"
+
+# Backup retention settings
+backup_retention:
+  days: 30
+  max_backups: 10

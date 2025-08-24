@@ -1,0 +1,12 @@
+---
+# Backup sources for web servers
+backup_sources:
+  - /etc/nginx/nginx.conf
+  - /etc/nginx/sites-available/
+  - /etc/nginx/sites-enabled/
+  - /opt/
+  - /var/www/
+  - /etc/systemd/system/
+  - /etc/cron.d/
+  - /var/log/nginx/
+  - /root/.ssh/

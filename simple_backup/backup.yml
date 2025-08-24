@@ -1,0 +1,109 @@
+---
+- name: Backup System Files
+  hosts: all
+  become: false
+  gather_facts: false
+  
+  vars:
+    # Default backup directory
+    default_backup_dir: "/home/martin/backup"
+    # Current timestamp in YYYYMMDDHHMI format - using local facts
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d%H%M') }}"
+    # Final backup directory with IP address prefix
+    backup_target_dir: "{{ backup_destination | default(default_backup_dir + '/' + ansible_host + '_' + timestamp) }}"
+
+  
+  tasks:
+    - name: Create backup directory on local machine
+      file:
+        path: "{{ backup_target_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Load backup configuration (if not defined in hosts)
+      include_vars: backup_config.yml
+      delegate_to: localhost
+      run_once: true
+      when: backup_sources is not defined
+    
+    - name: Create backup directory structure
+      file:
+        path: "{{ backup_target_dir }}/{{ item | basename }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ backup_sources }}"
+      when: item is match('.*/$') or item is match('.*\\*$')
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Backup files and directories
+      synchronize:
+        src: "{{ item }}"
+        dest: "{{ backup_target_dir }}/{{ item | basename }}"
+        mode: pull
+        rsync_opts:
+          - "--exclude=*.tmp"
+          - "--exclude=*.log"
+          - "--exclude=*.cache"
+          - "--exclude=node_modules/"
+          - "--exclude=.git/"
+          - "--exclude=*.pyc"
+          - "--exclude=__pycache__/"
+          - "--delete"
+          - "--archive"
+          - "--compress"
+          - "--human-readable"
+          - "--progress"
+      loop: "{{ backup_sources }}"
+      register: backup_results
+    
+    - name: Get current timestamp for metadata
+      set_fact:
+        current_timestamp: "{{ lookup('pipe', 'date -Iseconds') }}"
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Create backup metadata
+      copy:
+        content: |
+          Backup completed at: {{ current_timestamp }}
+          Source host: {{ inventory_hostname }}
+          Source IP: {{ ansible_host }}
+          Backup target: {{ backup_target_dir }}
+          Items backed up:
+          {% for item in backup_sources %}
+          - {{ item }}
+          {% endfor %}
+          
+          Backup results:
+          {% for result in backup_results.results %}
+          - {{ result.item }}: {{ result.changed | ternary('Changed', 'No changes') }}
+          {% endfor %}
+        dest: "{{ backup_target_dir }}/backup_metadata.txt"
+        mode: '0644'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Create backup archive
+      archive:
+        path: "{{ backup_target_dir }}"
+        dest: "{{ backup_target_dir }}.tar.gz"
+        format: gz
+        remove: false
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Display backup summary
+      debug:
+        msg: |
+          Backup completed successfully!
+          
+          Source: {{ inventory_hostname }} ({{ ansible_host }})
+          Destination: {{ backup_target_dir }}
+          Archive: {{ backup_target_dir }}.tar.gz
+          
+          Items backed up: {{ backup_sources | length }}
+          Timestamp: {{ timestamp }}
+      run_once: true

@@ -1,0 +1,9 @@
+---
+# Backup sources for backup servers
+backup_sources:
+  - /etc/systemd/system/
+  - /etc/cron.d/
+  - /root/.ssh/
+  - /backups/
+  - /var/log/
+  - /etc/rsyslog.conf
